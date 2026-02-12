@@ -276,34 +276,6 @@
 
     <!-- Modals -->
 
-    <!-- Message Modal (Replaces alert) -->
-    <div id="message-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-        <div class="modal-content bg-white w-11/12 max-w-xs rounded-2xl p-6 text-center shadow-2xl border-2 border-rpg-text">
-            <h3 class="text-lg font-bold text-gray-800 mb-2" id="message-modal-title">お知らせ</h3>
-            <p class="text-sm text-gray-600 mb-6" id="message-modal-text">...</p>
-            <button onclick="closeModal('message-modal')" class="w-full bg-rpg-text text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700">
-                OK
-            </button>
-        </div>
-    </div>
-
-    <!-- Confirmation Modal (Replaces confirm) -->
-    <div id="confirm-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
-        <div class="modal-content bg-white w-11/12 max-w-xs rounded-2xl p-6 text-center shadow-2xl border-2 border-red-400">
-            <div class="text-red-500 text-3xl mb-2"><i class="fas fa-exclamation-circle"></i></div>
-            <h3 class="text-lg font-bold text-gray-800 mb-2">確認</h3>
-            <p class="text-sm text-gray-600 mb-6" id="confirm-modal-text">本当に実行しますか？</p>
-            <div class="flex space-x-3">
-                <button onclick="closeModal('confirm-modal')" class="flex-1 bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">
-                    キャンセル
-                </button>
-                <button id="confirm-modal-ok-btn" class="flex-1 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">
-                    実行
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Level Up Modal -->
     <div id="level-up-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content bg-white w-11/12 max-w-sm rounded-2xl p-6 text-center shadow-2xl border-4 border-yellow-400 relative overflow-hidden">
@@ -337,7 +309,7 @@
                 <div class="inline-block p-4 rounded-full bg-pink-100 mb-4 animate-bounce-short">
                     <i class="fas fa-gift text-5xl text-pink-500"></i>
                 </div>
-                <h2 class="text-2xl font-black text-pink-500 mb-2">ご褒美獲得！</h2>
+                <h2 class="text-2xl font-black text-pink-500 mb-2" id="reward-modal-title">ご褒美獲得！</h2>
                 <p id="reward-modal-name" class="text-xl font-bold text-gray-800 mb-6">...</p>
                 <button onclick="closeModal('reward-modal')" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg">
                     閉じる
@@ -386,13 +358,18 @@
 
     <script>
         // --- Game Config ---
+        // 新しい称号リスト：レベル1〜5まで毎回変わります！
         const TITLES = [
             { level: 1, name: "見習い家事士" },
-            { level: 3, name: "駆け出しクリーナー" },
+            { level: 2, name: "駆け出しクリーナー" },
+            { level: 3, name: "一人前の片付け屋" },
+            { level: 4, name: "熟練の掃除職人" },
             { level: 5, name: "整頓の魔術師" },
+            { level: 7, name: "快適空間クリエイター" },
             { level: 10, name: "家事マスター" },
+            { level: 15, name: "名もなき英雄" },
             { level: 20, name: "隠れ家の守護者" },
-            { level: 30, name: "名もなき英雄" },
+            { level: 30, name: "リビングの支配者" },
             { level: 50, name: "レジェンド・オブ・カジ" }
         ];
 
@@ -440,8 +417,6 @@
             rewards: [],
             logs: []
         };
-        
-        let pendingAction = null; // Store function for confirm modal
 
         // --- Init ---
         function init() {
@@ -468,31 +443,6 @@
 
         function setQuestXp(val) {
             document.getElementById('new-quest-xp').value = val;
-        }
-
-        // --- Utils: Modals & Confirmation ---
-        function showMessage(text, title = "お知らせ") {
-            document.getElementById('message-modal-title').textContent = title;
-            document.getElementById('message-modal-text').textContent = text;
-            const modal = document.getElementById('message-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => modal.classList.remove('opacity-0'), 10);
-        }
-
-        function showConfirm(text, callback) {
-            document.getElementById('confirm-modal-text').textContent = text;
-            pendingAction = callback;
-            const modal = document.getElementById('confirm-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => modal.classList.remove('opacity-0'), 10);
-            
-            // Re-bind click
-            const okBtn = document.getElementById('confirm-modal-ok-btn');
-            okBtn.onclick = () => {
-                if (pendingAction) pendingAction();
-                closeModal('confirm-modal');
-                pendingAction = null;
-            };
         }
 
         // --- Reordering Logic ---
@@ -525,7 +475,6 @@
             const quest = gameState.quests.find(q => q.id === questId);
             if (!quest) return;
 
-            // 50GP判定のために現在の獲得量を保存
             const oldTotalXP = gameState.totalXP;
 
             gameState.currentXP += quest.xp;
@@ -549,14 +498,14 @@
             setTimeout(() => coinDisplay.classList.remove('text-rpg-accent', 'scale-110'), 300);
 
             checkLevelUp();
-            
-            // 50GP (XP) 獲得ごとのマイルストーンチェック（自己肯定感を高めるメッセージ）
+
+            // 50GP (XP) 獲得ごとのマイルストーンチェック
             if (Math.floor(oldTotalXP / 50) < Math.floor(gameState.totalXP / 50)) {
                 setTimeout(() => {
                     const randomMsg = ENCOURAGEMENT_MESSAGES[Math.floor(Math.random() * ENCOURAGEMENT_MESSAGES.length)];
                     showMessage(randomMsg, "✨ 50GP達成おめでとう ✨");
                     triggerConfetti();
-                }, 800); // レベルアップモーダルと被らないよう少し遅延して表示
+                }, 800);
             }
 
             saveGame();
@@ -580,42 +529,42 @@
             }
         }
 
-        function triggerDeleteLog(index) {
-             showConfirm("この操作を取り消しますか？\n（経験値やGPも元に戻ります）", () => {
-                const log = gameState.logs[index];
-                if (!log) return;
+        function deleteLogEntry(index) {
+            const log = gameState.logs[index];
+            if (!log) return;
+            
+            if(!confirm("この操作を取り消しますか？\n（経験値やGPも元に戻ります）")) return;
 
-                if (log.type === 'quest') {
-                    gameState.totalXP -= log.val;
-                    gameState.coins -= log.val;
-                    gameState.currentXP -= log.val;
-                    
-                    while (gameState.currentXP < 0) {
-                        if (gameState.level > 1) {
-                            gameState.level--;
-                            gameState.nextLevelXP = getXpForNextLevel(gameState.level);
-                            gameState.currentXP += gameState.nextLevelXP;
-                        } else {
-                            gameState.currentXP = 0;
-                            gameState.totalXP = 0;
-                            break;
-                        }
+            if (log.type === 'quest') {
+                gameState.totalXP -= log.val;
+                gameState.coins -= log.val;
+                gameState.currentXP -= log.val;
+                
+                while (gameState.currentXP < 0) {
+                    if (gameState.level > 1) {
+                        gameState.level--;
+                        gameState.nextLevelXP = getXpForNextLevel(gameState.level);
+                        gameState.currentXP += gameState.nextLevelXP;
+                    } else {
+                        gameState.currentXP = 0;
+                        gameState.totalXP = 0;
+                        break;
                     }
-                } else if (log.type === 'reward') {
-                    gameState.coins += log.val;
                 }
+            } else if (log.type === 'reward') {
+                gameState.coins += log.val;
+            }
 
-                gameState.logs.splice(index, 1);
-                saveGame();
-                renderAll();
-             });
+            gameState.logs.splice(index, 1);
+            saveGame();
+            renderAll();
         }
 
         function addNewQuest() {
             const name = document.getElementById('new-quest-name').value.trim();
             const xp = parseInt(document.getElementById('new-quest-xp').value);
-            if (!name) return showMessage("クエスト名を入力してください");
-            if (isNaN(xp) || xp <= 0) return showMessage("有効なXPを入力してください");
+            if (!name) return alert("名前を入力してください");
+            if (isNaN(xp) || xp <= 0) return alert("有効なXPを入力してください");
 
             gameState.quests.push({ id: Date.now(), name, xp, icon: "fa-scroll" });
             document.getElementById('new-quest-name').value = '';
@@ -627,7 +576,7 @@
         function addNewReward() {
             const name = document.getElementById('new-reward-name').value.trim();
             const cost = parseInt(document.getElementById('new-reward-cost').value);
-            if (!name || isNaN(cost) || cost <= 0) return showMessage("有効な値を入力してください");
+            if (!name || isNaN(cost) || cost <= 0) return alert("有効な値を入力してください");
 
             gameState.rewards.push({ id: Date.now(), name, cost, icon: "fa-gift" });
             document.getElementById('new-reward-name').value = '';
@@ -638,28 +587,28 @@
 
         function deleteQuest(e, id) {
             e.stopPropagation();
-            showConfirm("このクエストを削除しますか？", () => {
+            if(confirm("このクエストを削除しますか？")) {
                 gameState.quests = gameState.quests.filter(q => q.id !== id);
                 saveGame();
                 renderQuests();
-            });
+            }
         }
         
         function deleteReward(e, id) {
             e.stopPropagation();
-            showConfirm("この報酬を削除しますか？", () => {
+            if(confirm("この報酬を削除しますか？")) {
                 gameState.rewards = gameState.rewards.filter(r => r.id !== id);
                 saveGame();
                 renderRewards();
-            });
+            }
         }
 
         function redeemReward(id) {
             const reward = gameState.rewards.find(r => r.id === id);
             if (!reward) return;
-            if (gameState.coins < reward.cost) return showMessage("GPが足りません！");
+            if (gameState.coins < reward.cost) return alert("GPが足りません！");
 
-            showConfirm(`「${reward.name}」を交換しますか？\n消費: ${reward.cost} GP`, () => {
+            if(confirm(`「${reward.name}」を交換しますか？\n消費: ${reward.cost} GP`)) {
                 gameState.coins -= reward.cost;
                 addLog({
                     type: 'reward',
@@ -672,12 +621,13 @@
                 renderStatus();
                 renderRewards();
                 
+                document.getElementById('reward-modal-title').textContent = "ご褒美獲得！";
                 document.getElementById('reward-modal-name').textContent = reward.name;
                 const modal = document.getElementById('reward-modal');
                 modal.classList.remove('hidden');
                 setTimeout(() => modal.classList.remove('opacity-0'), 10);
                 triggerConfetti();
-            });
+            }
         }
 
         // --- Editing ---
@@ -714,7 +664,7 @@
             const name = document.getElementById('edit-name').value.trim();
             const val = parseInt(document.getElementById('edit-value').value);
 
-            if (!name || isNaN(val) || val < 0) return showMessage("正しい値を入力してください");
+            if (!name || isNaN(val) || val < 0) return alert("正しい値を入力してください");
 
             if (type === 'quest') {
                 const item = gameState.quests.find(q => q.id === id);
@@ -738,12 +688,20 @@
         // --- Logging ---
         function addLog(data) {
             const now = new Date();
-            // 日付と時間をフォーマット (例: 2/12 15:30)
             const time = `${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
             const logEntry = typeof data === 'string' ? { message: data, time } : { ...data, time };
             gameState.logs.unshift(logEntry);
             if (gameState.logs.length > 20) gameState.logs.pop();
             renderLog();
+        }
+
+        // --- Message Display ---
+        function showMessage(msg, title = "メッセージ") {
+            document.getElementById('reward-modal-title').textContent = title;
+            document.getElementById('reward-modal-name').innerHTML = `<span class="text-sm text-gray-600 font-normal leading-relaxed">${msg}</span>`;
+            const modal = document.getElementById('reward-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
         }
 
         // --- Rendering ---
@@ -784,7 +742,6 @@
                             <i class="fas ${iconClass} text-lg"></i>
                         </div>
                         <div class="min-w-0 flex-1 pr-2">
-                            <!-- truncate を外し、break-words と whitespace-normal を追加して改行させる -->
                             <div class="font-bold text-gray-700 leading-snug break-words whitespace-normal">${q.name}</div>
                             <div class="text-[10px] text-gray-400 mt-1 inline-block border-t border-gray-100 pt-0.5">報酬: ${q.xp} GP</div>
                         </div>
@@ -869,7 +826,7 @@
                 `;
                 let btnHtml = '';
                 if (log.type) {
-                    btnHtml = `<button onclick="triggerDeleteLog(${index})" class="text-gray-300 hover:text-red-500 p-1 rounded transition-colors" title="取り消す"><i class="fas fa-trash-alt"></i></button>`;
+                    btnHtml = `<button onclick="deleteLogEntry(${index})" class="text-gray-300 hover:text-red-500 p-1 rounded transition-colors" title="取り消す"><i class="fas fa-trash-alt"></i></button>`;
                 }
                 li.appendChild(contentDiv);
                 li.insertAdjacentHTML('beforeend', btnHtml);
@@ -899,7 +856,7 @@
 
         function saveName() {
             const name = document.getElementById('player-name-input').value.trim();
-            if (!name) return showMessage("名前を入力してください");
+            if (!name) return alert("名前を入力してください");
             gameState.playerName = name;
             saveGame();
             renderStatus();
@@ -944,6 +901,14 @@
             triggerConfetti();
         }
 
+        // --- Confirmation Modal Trigger ---
+        function triggerResetConfirmation() {
+            if(confirm("本当にデータをリセットしますか？\n（現在のレベル、GP、ログなどがすべて消去されます）")) {
+                localStorage.removeItem('namelessHouseworkRPG_v2');
+                location.reload();
+            }
+        }
+
         // --- Save/Load ---
         function saveGame() {
             localStorage.setItem('namelessHouseworkRPG_v2', JSON.stringify(gameState));
@@ -957,13 +922,6 @@
                 if (!Array.isArray(gameState.logs)) gameState.logs = [];
                 gameState.nextLevelXP = getXpForNextLevel(gameState.level);
             }
-        }
-
-        function triggerResetConfirmation() {
-            showConfirm("本当にデータをリセットしますか？\n全ての記録が消えます。", () => {
-                localStorage.removeItem('namelessHouseworkRPG_v2');
-                location.reload();
-            });
         }
 
         // Start
